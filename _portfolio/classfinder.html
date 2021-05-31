@@ -25,24 +25,23 @@ collection: portfolio
 
                 </form>
             </div>
-            <div id="professors"></div>
-            <div id="plot"></div>
+            <div id="quarter-vs-tenure"></div>
+            <div id="department-tenure"></div>
         </div>
     </body>
         <script>
             function classfinder() {
                 return {
-                    department: null
+                    department: 'CSCI'
                     ,departments: []
                     ,orderBy: 'end_date'
-                    ,url: new URL( 'https://postgrest.rivermatt/tenure')
+                    ,urlBase: new URL( 'https://api.rivermatt.com')
                     ,tenures: []
                     ,reload: function(){
-                        //sessionStorage.removeItem("tenures");
-                        //this.tenures = [];
-                        this.plot();
+                        this.plotInit();
                     }
                     ,plotColor: function(d) { 
+                        return 0
                         return d.department
                     }
                     ,endDate: function(d) { 
@@ -56,84 +55,74 @@ collection: portfolio
                     ,tenure: function(d) { 
                         return d.tenure
                     }
+                    ,instructor: function(d) { 
+                        return d.instructor
+                    }
                     ,coursesTaught: function(d) { 
                         return d.quarters_taught
                     }
                     ,plot: function() {
-                        this.plotTenures()
                         this.scatterTenure()
                     }
-                    ,scatterTenure() {
+                    ,plotInit() {
                         plot = Plot.plot({
                             marks: [
                                 Plot.dot(this.tenures, 
                                 {
                                     x: this.tenure
                                     ,y: this.coursesTaught
-                                    ,fill: this.plotColor
-                                    ,color: {
-                                        scheme: 'BuRd'
-                                    }
+                                    ,fill: 'grey'
+                                    ,title: this.instructor
+                                })
+                                ,Plot.dot(this.tenures, 
+                                {
+                                    x: this.tenure
+                                    ,y: this.coursesTaught
+                                    ,r: 10
+                                    ,stroke: 'red'
                                     ,filter: d => d.department === this.department
                                 })
                             ]
+                            ,caption: 'Plot of tenure (max minus min years) vs. teaching quarters (count of distinct quarters)'
                         })
-                        parent = document.getElementById("professors")
-                        while (parent.firstChild) {
-                            parent.removeChild(parent.firstChild);
-                        }
-                        parent.appendChild(plot)
-                    }
-                    ,plotTenures() {
+                        plot.id = 'quarter-vs-tenure'
+                        document.getElementById("quarter-vs-tenure").replaceWith(plot)
+
                         plot = Plot.plot({
-                            height: this.tenures.length * 16
-                            //,width: 1000
-                            //,grid: true
-                            ,marks: [
-                                    Plot.ruleY(this.tenures, 
-                                    {
-                                        x1: this.startDate
-                                        ,x2: this.endDate
-                                        ,y: "instructor"
-                                        ,strokeWidth: 16
-                                        ,stroke:this.tenure
-                                        ,color: {
-                                            scheme: 'BuRd'
-                                        }
-                                        ,filter: (d) => {
-                                            d.department === this.department
-                                        }
-                                    })
+                            marks: [
+                                Plot.barX(this.tenures.filter(d => d.department === this.department), 
+                                {
+                                    y: this.instructor
+                                    ,x: this.tenure
+                                    ,fill: 'grey'
+                                })
+                                ,Plot.text(this.tenures.filter(d => d.department === this.department),
+                                {
+                                    y: this.instructor
+                                    ,x: this.tenure
+                                    ,text: this.tenure
+                                })
                             ]
-                            ,x: {
-                                ticks: 5
-                                ,tickRotate: "-90"
-                                ,label: "years working"
-                            }
                             ,y: {
-                                axis: "right"
-                                ,domain: "instructor"
+                                axis: 'right'
+                                ,domain: d3.sort(this.tenures, d => d.tenure)
+                                            .filter(d => d.department ===this.department)
+                                            .map(d => d.instructor)
                             }
-                            ,marginLeft:100
-                            //,marginBottom:40
+                            ,marginRight: 200
+                            ,caption: 'Plot of instructor tenure (max minus min years) for a given department'
                         })
-                        parent = document.getElementById("plot")
-                        while (parent.firstChild) {
-                            parent.removeChild(parent.firstChild);
-                        }
-                        parent.appendChild(plot)
+                        plot.id = 'department-tenure'
+                        document.getElementById("department-tenure").replaceWith(plot)
                     }
                     ,init: function() {
-                        const tenures = JSON.parse(sessionStorage.getItem("tenures"));
-                        if(tenures){
-                            // make it accessible to x-data
-                            this.tenures = tenures;
-                        } else {
-                            if(this.department) {
-                                this.url.searchParams.set('department', 'eq.' + this.department)
-                            }
+                        let url = this.urlBase
+                        url.pathname = '/tenure'
+//                            if(this.department) {
+//                                url.searchParams.set('department', 'eq.' + this.department)
+//                            }
                             if(this.orderBy) {
-                                this.url.searchParams.set('order', this.orderBy)
+                                url.searchParams.set('order', this.orderBy)
                             }
                             this.options = {
                                 method: 'get', 
@@ -141,7 +130,7 @@ collection: portfolio
                                     'Accept-Profile': 'classfinder'
                                 }
                             }
-                            fetch(this.url, this.options)
+                            fetch(url, this.options)
                                 .then(response => {
                                     if (!response.ok) {
                                         const message = `An error has occured: ${response.status}`;
@@ -150,17 +139,14 @@ collection: portfolio
                                     return response.json()
                                 })
                                 .then(response => {
-                                    this.tenures = response;
+                                    this.tenures = response
                                     let departments = d3.map(response, function(d) { return d.department; }).values()
-                                    departments = [...new Set(departments)];
-                                    console.log(departments)
+                                    departments = [...new Set(departments)].sort();
                                     this.departments = departments
 
-                                    sessionStorage.setItem("tenures",JSON.stringify(tenures));
-                                    this.plot()
+                                    this.plotInit()
                                 })
                         }
-                    }
             }
         }
         </script>
