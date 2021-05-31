@@ -1,0 +1,167 @@
+---
+title: "WWU Classfinder Visualization"
+excerpt: "Short description of portfolio item number 2 <br/><img src='/images/500x300.png'>"
+collection: portfolio
+---
+
+<html>
+    <head>
+        <title>classfinder - image</title>
+        <script src="https://cdn.jsdelivr.net/npm/d3@6" defer></script>
+        <script src="https://cdn.jsdelivr.net/npm/@observablehq/plot@0.1" defer></script>
+        <script src="https://cdn.jsdelivr.net/gh/alpinejs/alpine@v2.x.x/dist/alpine.min.js" defer></script>
+    </head>
+    <body>
+        <h2 x-text>
+            <div x-data="classfinder()" x-init="() => {init()}">
+            <div>
+                <form x-on:submit.prevent>
+                    <label for="department">Department (ABBR.)</label>
+                    <select name="department" x-model="department" x-on:change="reload">
+                        <template x-for="name in departments" :key="name">
+                            <option :value="name" x-text="name"></option>
+                        </template>
+                    </select>
+
+                </form>
+            </div>
+            <div id="professors"></div>
+            <div id="plot"></div>
+        </div>
+    </body>
+        <script>
+            function classfinder() {
+                return {
+                    department: null
+                    ,departments: []
+                    ,orderBy: 'end_date'
+                    ,url: new URL( 'https://postgrest.rivermatt/tenure')
+                    ,tenures: []
+                    ,reload: function(){
+                        //sessionStorage.removeItem("tenures");
+                        //this.tenures = [];
+                        this.plot();
+                    }
+                    ,plotColor: function(d) { 
+                        return d.department
+                    }
+                    ,endDate: function(d) { 
+                        formatYear = d3.timeFormat("%Y")
+                        return formatYear(new Date(d.end_date))
+                    }
+                    ,startDate: function(d) { 
+                        formatYear = d3.timeFormat("%Y")
+                        return formatYear(new Date(d.start_date))
+                    }
+                    ,tenure: function(d) { 
+                        return d.tenure
+                    }
+                    ,coursesTaught: function(d) { 
+                        return d.quarters_taught
+                    }
+                    ,plot: function() {
+                        this.plotTenures()
+                        this.scatterTenure()
+                    }
+                    ,scatterTenure() {
+                        plot = Plot.plot({
+                            marks: [
+                                Plot.dot(this.tenures, 
+                                {
+                                    x: this.tenure
+                                    ,y: this.coursesTaught
+                                    ,fill: this.plotColor
+                                    ,color: {
+                                        scheme: 'BuRd'
+                                    }
+                                    ,filter: d => d.department === this.department
+                                })
+                            ]
+                        })
+                        parent = document.getElementById("professors")
+                        while (parent.firstChild) {
+                            parent.removeChild(parent.firstChild);
+                        }
+                        parent.appendChild(plot)
+                    }
+                    ,plotTenures() {
+                        plot = Plot.plot({
+                            height: this.tenures.length * 16
+                            //,width: 1000
+                            //,grid: true
+                            ,marks: [
+                                    Plot.ruleY(this.tenures, 
+                                    {
+                                        x1: this.startDate
+                                        ,x2: this.endDate
+                                        ,y: "instructor"
+                                        ,strokeWidth: 16
+                                        ,stroke:this.tenure
+                                        ,color: {
+                                            scheme: 'BuRd'
+                                        }
+                                        ,filter: (d) => {
+                                            d.department === this.department
+                                        }
+                                    })
+                            ]
+                            ,x: {
+                                ticks: 5
+                                ,tickRotate: "-90"
+                                ,label: "years working"
+                            }
+                            ,y: {
+                                axis: "right"
+                                ,domain: "instructor"
+                            }
+                            ,marginLeft:100
+                            //,marginBottom:40
+                        })
+                        parent = document.getElementById("plot")
+                        while (parent.firstChild) {
+                            parent.removeChild(parent.firstChild);
+                        }
+                        parent.appendChild(plot)
+                    }
+                    ,init: function() {
+                        const tenures = JSON.parse(sessionStorage.getItem("tenures"));
+                        if(tenures){
+                            // make it accessible to x-data
+                            this.tenures = tenures;
+                        } else {
+                            if(this.department) {
+                                this.url.searchParams.set('department', 'eq.' + this.department)
+                            }
+                            if(this.orderBy) {
+                                this.url.searchParams.set('order', this.orderBy)
+                            }
+                            this.options = {
+                                method: 'get', 
+                                headers: {
+                                    'Accept-Profile': 'classfinder'
+                                }
+                            }
+                            fetch(this.url, this.options)
+                                .then(response => {
+                                    if (!response.ok) {
+                                        const message = `An error has occured: ${response.status}`;
+                                        throw new Error(message);  
+                                    }
+                                    return response.json()
+                                })
+                                .then(response => {
+                                    this.tenures = response;
+                                    let departments = d3.map(response, function(d) { return d.department; }).values()
+                                    departments = [...new Set(departments)];
+                                    console.log(departments)
+                                    this.departments = departments
+
+                                    sessionStorage.setItem("tenures",JSON.stringify(tenures));
+                                    this.plot()
+                                })
+                        }
+                    }
+            }
+        }
+        </script>
+</html>
