@@ -3,23 +3,16 @@ title: "WWU Classfinder Visualization"
 excerpt: "Short description of portfolio item number 2 <br/><img src='/images/500x300.png'>"
 collection: portfolio
 ---
-
-<html>
-    <head>
-        <title>classfinder - image</title>
         <script src="https://cdn.jsdelivr.net/npm/d3@6" defer></script>
         <script src="https://cdn.jsdelivr.net/npm/@observablehq/plot@0.1" defer></script>
         <script src="https://cdn.jsdelivr.net/gh/alpinejs/alpine@v2.x.x/dist/alpine.min.js" defer></script>
-    </head>
-    <body>
         <h2>A collection of data visualizations of WWU course catalog from 2003-2021.</h2>
             <div x-data="classfinder()" x-init="() => {init()}">
             <h3>Department Enrollment Over Time</h3>
             <form x-on:submit.prevent>
-                <label for="topOnly">Show Top 20 Departments:</label>
-                <input name="topOnly" type="checkbox" x-bind:checked="topOnly" x-on:change="reload">
+                <label for="allDepartments">Show All Departments:</label>
+                <input name="allDepartments" type="checkbox" x-model="allDepartments" x-on:click="reload">
             </form>
-            <div id="department-enrollment"></div>
             <div>
                 <form x-on:submit.prevent>
                     <label for="department">Pick a Department:</label>
@@ -30,6 +23,7 @@ collection: portfolio
                     </select>
                 </form>
             </div>
+            <div id="department-enrollment"></div>
             <h3>Instructor Tenure By Department</h3>
             <div id="department-tenure"></div>
             <h3>Quarters Taught vs. Tenure</h3>
@@ -44,7 +38,7 @@ collection: portfolio
                     ,departments: []
                     ,tenures: []
                     ,enrollments: []
-                    ,topOnly: true
+                    ,allDepartments: true
                     ,reload: function(){
                         this.plotInit();
                     }
@@ -66,9 +60,8 @@ collection: portfolio
                         return d.quarters_taught
                     }
                     ,topDepartments: function(d) {
-                        console.log(this.topOnly)
-                        if(this.topOnly) {
-                            return d.department_rank >= 15;
+                        if(this.allDepartments === true) {
+                            return d.department_rank < 15;
                         }
                         return true;
                     }
@@ -138,22 +131,29 @@ collection: portfolio
                             ,y: {
                                 axis: null
                             }
+                            ,x: {
+                                nice: true
+                                ,ticks: 5
+                            }
                             ,fy: {
                                 axis: 'right'
+                                ,domain: d3.groupSort(this.enrollments.filter(d => this.topDepartments(d) || d.department === this.department), g => d3.median(g, d => d.department_rank), d => d.department)
                             }
                             ,marks: [
-                                Plot.areaY(this.enrollments, {
+                                Plot.barY(this.enrollments, {
                                     x: d => new Date(d.starts_on)
                                     ,y: "enrolled"
                                     ,fillOpacity: 0.2
                                 })
-                                ,Plot.lineY(this.enrollments, {
+                                ,Plot.barY(this.enrollments, {
                                     x: d => new Date(d.starts_on)
                                     ,y: "enrolled"
-                                    ,strokeWidth: 1
+                                    ,fill: 'red' 
+                                    ,filter: d => d.department === this.department
                                 })
                             ]
                             ,caption: 'Plot of enrollment (students) vs. time for each department.'
+
                         })
                         plot.id = 'department-enrollment'
                         document.getElementById("department-enrollment").replaceWith(plot)
@@ -204,5 +204,3 @@ collection: portfolio
             }
         }
         </script>
-    </body>
-</html>
