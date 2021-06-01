@@ -12,37 +12,42 @@ collection: portfolio
         <script src="https://cdn.jsdelivr.net/gh/alpinejs/alpine@v2.x.x/dist/alpine.min.js" defer></script>
     </head>
     <body>
-        <h2 x-text>
+        <h2>A collection of data visualizations of WWU course catalog from 2003-2021.</h2>
             <div x-data="classfinder()" x-init="() => {init()}">
+            <h3>Department Enrollment Over Time</h3>
+            <form x-on:submit.prevent>
+                <label for="topOnly">Show Top 20 Departments:</label>
+                <input name="topOnly" type="checkbox" x-bind:checked="topOnly" x-on:change="reload">
+            </form>
+            <div id="department-enrollment"></div>
             <div>
                 <form x-on:submit.prevent>
-                    <label for="department">Department (ABBR.)</label>
+                    <label for="department">Pick a Department:</label>
                     <select name="department" x-model="department" x-on:change="reload">
                         <template x-for="name in departments" :key="name">
                             <option :value="name" x-text="name"></option>
                         </template>
                     </select>
-
                 </form>
             </div>
-            <div id="quarter-vs-tenure"></div>
+            <h3>Instructor Tenure By Department</h3>
             <div id="department-tenure"></div>
+            <h3>Quarters Taught vs. Tenure</h3>
+            <div id="quarter-vs-tenure"></div>
         </div>
     </body>
         <script>
             function classfinder() {
                 return {
-                    department: 'CSCI'
+                    //urlBase: new URL( 'http://localhost:3000')
+                    urlBase: new URL( 'https://api.rivermatt.com')
+                    ,department: 'CSCI'
                     ,departments: []
-                    ,orderBy: 'end_date'
-                    ,urlBase: new URL( 'https://api.rivermatt.com')
                     ,tenures: []
+                    ,enrollments: []
+                    ,topOnly: true
                     ,reload: function(){
                         this.plotInit();
-                    }
-                    ,plotColor: function(d) { 
-                        return 0
-                        return d.department
                     }
                     ,endDate: function(d) { 
                         formatYear = d3.timeFormat("%Y")
@@ -61,8 +66,12 @@ collection: portfolio
                     ,coursesTaught: function(d) { 
                         return d.quarters_taught
                     }
-                    ,plot: function() {
-                        this.scatterTenure()
+                    ,topDepartments: function(d) {
+                        console.log(this.topOnly)
+                        if(this.topOnly) {
+                            return d.department_rank >= 15;
+                        }
+                        return true;
                     }
                     ,plotInit() {
                         plot = Plot.plot({
@@ -90,30 +99,65 @@ collection: portfolio
 
                         plot = Plot.plot({
                             marks: [
-                                Plot.barX(this.tenures.filter(d => d.department === this.department), 
+                                Plot.barX(this.tenures,
                                 {
                                     y: this.instructor
                                     ,x: this.tenure
                                     ,fill: 'grey'
+                                    ,filter: d => d.department === this.department
                                 })
-                                ,Plot.text(this.tenures.filter(d => d.department === this.department),
+                                ,Plot.text(this.tenures,
                                 {
                                     y: this.instructor
                                     ,x: this.tenure
                                     ,text: this.tenure
+                                    ,dx: 15
+                                    ,filter: d => d.department === this.department
                                 })
                             ]
                             ,y: {
                                 axis: 'right'
                                 ,domain: d3.sort(this.tenures, d => d.tenure)
-                                            .filter(d => d.department ===this.department)
-                                            .map(d => d.instructor)
+                                    .filter(d => d.department === this.department)
+                                    .map(d => d.instructor)
+                                ,label: 'Instructor name'
+                                ,labelAnchor: 'center'
+                            }
+                            ,x: {
+                                label: 'Instructor tenure (years)'
                             }
                             ,marginRight: 200
                             ,caption: 'Plot of instructor tenure (max minus min years) for a given department'
                         })
                         plot.id = 'department-tenure'
                         document.getElementById("department-tenure").replaceWith(plot)
+                        plot = Plot.plot({
+                            facet: {
+                                data: this.enrollments
+                                ,y: "department"
+                            }
+                            ,y: {
+                                axis: null
+                            }
+                            ,fy: {
+                                axis: 'right'
+                            }
+                            ,marks: [
+                                Plot.areaY(this.enrollments, {
+                                    x: d => new Date(d.starts_on)
+                                    ,y: "enrolled"
+                                    ,fillOpacity: 0.2
+                                })
+                                ,Plot.lineY(this.enrollments, {
+                                    x: d => new Date(d.starts_on)
+                                    ,y: "enrolled"
+                                    ,strokeWidth: 1
+                                })
+                            ]
+                            ,caption: 'Plot of enrollment (students) vs. time for each department.'
+                        })
+                        plot.id = 'department-enrollment'
+                        document.getElementById("department-enrollment").replaceWith(plot)
                     }
                     ,init: function() {
                         let url = this.urlBase
@@ -121,32 +165,43 @@ collection: portfolio
 //                            if(this.department) {
 //                                url.searchParams.set('department', 'eq.' + this.department)
 //                            }
-                            if(this.orderBy) {
-                                url.searchParams.set('order', this.orderBy)
+                        this.options = {
+                            method: 'get', 
+                            headers: {
+                                'Accept-Profile': 'classfinder'
                             }
-                            this.options = {
-                                method: 'get', 
-                                headers: {
-                                    'Accept-Profile': 'classfinder'
-                                }
-                            }
-                            fetch(url, this.options)
-                                .then(response => {
-                                    if (!response.ok) {
-                                        const message = `An error has occured: ${response.status}`;
-                                        throw new Error(message);  
-                                    }
-                                    return response.json()
-                                })
-                                .then(response => {
-                                    this.tenures = response
-                                    let departments = d3.map(response, function(d) { return d.department; }).values()
-                                    departments = [...new Set(departments)].sort();
-                                    this.departments = departments
-
-                                    this.plotInit()
-                                })
                         }
+                        fetch(url, this.options)
+                            .then(response => {
+                                if (!response.ok) {
+                                    const message = `An error has occured: ${response.status}`;
+                                    throw new Error(message);  
+                                }
+                                return response.json()
+                            })
+                            .then(response => {
+                                this.tenures = response
+                                let departments = d3.map(response, function(d) { return d.department; }).values()
+                                departments = [...new Set(departments)].sort();
+                                this.departments = departments
+
+                                this.plotInit()
+                            })
+                        url = this.urlBase
+                        url.pathname = '/enrollment'
+                        fetch(url, this.options)
+                            .then(response => {
+                                if (!response.ok) {
+                                    const message = `An error has occured: ${response.status}`;
+                                    throw new Error(message);  
+                                }
+                                return response.json()
+                            })
+                            .then(response => {
+                                this.enrollments = response
+                                this.plotInit()
+                            })
+                    }
             }
         }
         </script>
