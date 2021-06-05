@@ -81,7 +81,7 @@ analytics:
 # Site Author
 author:
   name             : "Matt J. River"
-  avatar           : "profile.png"
+  avatar           : "profile.jpg"
   bio              : "Bio"
   location         : "WA"
   employer         :
@@ -89,7 +89,7 @@ author:
   googlescholar    : false
   email            : "me@rivermatt.com"
   researchgate     :  # example: "https://www.researchgate.net/profile/yourprofile"
-  uri              : "rivermatt.com"
+  uri              : "https://rivermatt.com"
   bitbucket        :
   codepen          :
   dribbble         :

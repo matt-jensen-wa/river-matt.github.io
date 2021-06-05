@@ -3,151 +3,97 @@ title: "WWU Classfinder Visualization"
 excerpt: "Short description of portfolio item number 2 <br/><img src='/images/500x300.png'>"
 collection: portfolio
 ---
-        <script src="https://cdn.jsdelivr.net/npm/d3@6" defer></script>
-        <script src="https://cdn.jsdelivr.net/npm/@observablehq/plot@0.1" defer></script>
-        <script src="https://cdn.jsdelivr.net/gh/alpinejs/alpine@v2.x.x/dist/alpine.min.js" defer></script>
+
+<!DOCTYPE html>
+<html lang="en" class="no-js">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width">
+
+	<title>classfinder - image</title>
+
+	<script type="module">
+		document.documentElement.classList.remove('no-js');
+		document.documentElement.classList.add('js');
+	</script>
+	<script src="https://cdn.jsdelivr.net/npm/d3@6" defer></script>
+	<script src="https://cdn.jsdelivr.net/npm/@observablehq/plot@0.1" defer></script>
+	<script src="https://cdn.jsdelivr.net/gh/alpinejs/alpine@v2.x.x/dist/alpine.min.js" defer></script>
+
+	<meta name="description" content="Page description">
+	<meta property="og:title" content="Unique page title - My Site">
+	<meta property="og:description" content="Page description">
+	<meta property="og:image" content="https://www.mywebsite.com/image.jpg">
+	<meta property="og:image:alt" content="Image description">
+	<meta property="og:locale" content="en_GB">
+	<meta property="og:type" content="website">
+	<meta name="twitter:card" content="summary_large_image">
+	<meta property="og:url" content="https://www.mywebsite.com/page">
+	<link rel="canonical" href="https://www.mywebsite.com/page">
+
+	<link rel="icon" href="/favicon.ico">
+	<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+	<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+	<link rel="manifest" href="/my.webmanifest">
+	<meta name="theme-color" content="#FF00FF">
+</head>
+    <body>
         <h2>A collection of data visualizations of WWU course catalog from 2003-2021.</h2>
-            <div x-data="classfinder()" x-init="() => {init()}">
+        <div x-data="classfinder()" x-init="() => {init()}">
             <h3>Department Enrollment Over Time</h3>
-            <form x-on:submit.prevent>
-                <label for="allDepartments">Show All Departments:</label>
-                <input name="allDepartments" type="checkbox" x-model="allDepartments" x-on:click="reload">
-            </form>
-            <div>
-                <form x-on:submit.prevent>
-                    <label for="department">Pick a Department:</label>
-                    <select name="department" x-model="department" x-on:change="reload">
-                        <template x-for="name in departments" :key="name">
-                            <option :value="name" x-text="name"></option>
-                        </template>
-                    </select>
-                </form>
-            </div>
+        <div>
+                <label for="department">Pick a Department:</label>
+                <select name="department" x-model="department" x-on:change="draw">
+                    <template x-for="name in departments" :key="name">
+                        <option :value="name" x-text="name"></option>
+                    </template>
+                </select>
+        </div>
             <div id="department-enrollment"></div>
-            <h3>Instructor Tenure By Department</h3>
-            <div id="department-tenure"></div>
-            <h3>Quarters Taught vs. Tenure</h3>
-            <div id="quarter-vs-tenure"></div>
         </div>
         <script>
             function classfinder() {
+                urlBase = new URL( 'https://api.rivermatt.com')
+                options = {
+                    method: 'get', 
+                    headers: {
+                        'Accept-Profile': 'classfinder'
+                    }
+                }
                 return {
-                    //urlBase: new URL( 'http://localhost:3000')
-                    urlBase: new URL( 'https://api.rivermatt.com')
-                    ,department: 'CSCI'
+                    department: 'CSCI'
                     ,departments: []
                     ,tenures: []
                     ,enrollments: []
-                    ,allDepartments: true
-                    ,reload: function(){
-                        this.plotInit();
-                    }
-                    ,endDate: function(d) { 
-                        formatYear = d3.timeFormat("%Y")
-                        return formatYear(new Date(d.end_date))
-                    }
-                    ,startDate: function(d) { 
-                        formatYear = d3.timeFormat("%Y")
-                        return formatYear(new Date(d.start_date))
-                    }
-                    ,tenure: function(d) { 
-                        return d.tenure
-                    }
-                    ,instructor: function(d) { 
-                        return d.instructor
-                    }
-                    ,coursesTaught: function(d) { 
-                        return d.quarters_taught
-                    }
-                    ,topDepartments: function(d) {
-                        if(this.allDepartments === true) {
-                            return d.department_rank < 15;
-                        }
-                        return true;
-                    }
-                    ,plotInit() {
-                        plot = Plot.plot({
-                            marks: [
-                                Plot.dot(this.tenures, 
-                                {
-                                    x: this.tenure
-                                    ,y: this.coursesTaught
-                                    ,fill: 'grey'
-                                    ,title: this.instructor
-                                })
-                                ,Plot.dot(this.tenures, 
-                                {
-                                    x: this.tenure
-                                    ,y: this.coursesTaught
-                                    ,r: 10
-                                    ,stroke: 'red'
-                                    ,filter: d => d.department === this.department
-                                })
-                            ]
-                            ,caption: 'Plot of tenure (max minus min years) vs. teaching quarters (count of distinct quarters)'
-                        })
-                        plot.id = 'quarter-vs-tenure'
-                        document.getElementById("quarter-vs-tenure").replaceWith(plot)
-
-                        plot = Plot.plot({
-                            marks: [
-                                Plot.barX(this.tenures,
-                                {
-                                    y: this.instructor
-                                    ,x: this.tenure
-                                    ,fill: 'grey'
-                                    ,filter: d => d.department === this.department
-                                })
-                                ,Plot.text(this.tenures,
-                                {
-                                    y: this.instructor
-                                    ,x: this.tenure
-                                    ,text: this.tenure
-                                    ,dx: 15
-                                    ,filter: d => d.department === this.department
-                                })
-                            ]
-                            ,y: {
-                                axis: 'right'
-                                ,domain: d3.sort(this.tenures, d => d.tenure)
-                                    .filter(d => d.department === this.department)
-                                    .map(d => d.instructor)
-                                ,label: 'Instructor name'
-                                ,labelAnchor: 'center'
-                            }
-                            ,x: {
-                                label: 'Instructor tenure (years)'
-                            }
-                            ,marginRight: 200
-                            ,caption: 'Plot of instructor tenure (max minus min years) for a given department'
-                        })
-                        plot.id = 'department-tenure'
-                        document.getElementById("department-tenure").replaceWith(plot)
+                    ,draw() {
+                        data = d3.filter(this.enrollments, d => d.department_rank < 10 || d.department === this.department)
+                        data.forEach(d => console.log([d.department, this.department]))
                         plot = Plot.plot({
                             facet: {
-                                data: this.enrollments
-                                ,y: "department"
+                                data: data
+                                ,y: d => d.department
+                            }
+                            ,x: {
+                                //domain: domain.map(d => d.year)
                             }
                             ,y: {
                                 axis: null
                             }
-                            ,x: {
-                                nice: true
-                                ,ticks: 5
-                            }
                             ,fy: {
                                 axis: 'right'
-                                ,domain: d3.groupSort(this.enrollments.filter(d => this.topDepartments(d) || d.department === this.department), g => d3.median(g, d => d.department_rank), d => d.department)
+                                ,domain: data.sort(function(a,b){
+                                    return a.department === this.department || a.department_rank > b.department_rank ? 1 : -1
+                                }).map(d => d.department)
                             }
                             ,marks: [
-                                Plot.barY(this.enrollments, {
-                                    x: d => new Date(d.starts_on)
-                                    ,y: "enrolled"
-                                    ,fillOpacity: 0.2
+                                Plot.barY(data, {
+                                    x:  d => d.starts_on.getFullYear()
+                                    ,y: d => d.enrolled
+                                    ,fillOpacity: 0.5
                                 })
-                                ,Plot.barY(this.enrollments, {
-                                    x: d => new Date(d.starts_on)
-                                    ,y: "enrolled"
+                                ,Plot.barY(data, {
+                                    x: d => d.starts_on.getFullYear()
+                                    ,y: d => d.enrolled
                                     ,fill: 'red' 
                                     ,filter: d => d.department === this.department
                                 })
@@ -159,36 +105,9 @@ collection: portfolio
                         document.getElementById("department-enrollment").replaceWith(plot)
                     }
                     ,init: function() {
-                        let url = this.urlBase
-                        url.pathname = '/tenure'
-//                            if(this.department) {
-//                                url.searchParams.set('department', 'eq.' + this.department)
-//                            }
-                        this.options = {
-                            method: 'get', 
-                            headers: {
-                                'Accept-Profile': 'classfinder'
-                            }
-                        }
-                        fetch(url, this.options)
-                            .then(response => {
-                                if (!response.ok) {
-                                    const message = `An error has occured: ${response.status}`;
-                                    throw new Error(message);  
-                                }
-                                return response.json()
-                            })
-                            .then(response => {
-                                this.tenures = response
-                                let departments = d3.map(response, function(d) { return d.department; }).values()
-                                departments = [...new Set(departments)].sort();
-                                this.departments = departments
-
-                                this.plotInit()
-                            })
-                        url = this.urlBase
+                        let url = urlBase
                         url.pathname = '/enrollment'
-                        fetch(url, this.options)
+                        fetch(url, options)
                             .then(response => {
                                 if (!response.ok) {
                                     const message = `An error has occured: ${response.status}`;
@@ -197,10 +116,23 @@ collection: portfolio
                                 return response.json()
                             })
                             .then(response => {
-                                this.enrollments = response
-                                this.plotInit()
+                                this.enrollments = response.map(function(d){
+                                    return {
+                                        department: d.department
+                                        ,starts_on: new Date(d.starts_on)
+                                        ,enrolled: d.enrolled
+                                        ,capacity: d.capacity
+                                        ,department_rank: d.department_rank
+                                        
+                                    }
+                                });
+                                this.departments = new Set(response.map(d => d.department).sort())
+                                this.loading = false
+                                this.draw()
                             })
                     }
             }
         }
         </script>
+        </body>
+</html>
